@@ -1,0 +1,65 @@
+var branch = {};
+var shell = require('./shell.js');
+var log = require('./log.js').log;
+
+branch.current = function(callback){
+  shell.run('git rev-parse --abbrev-ref HEAD', { logging: false }, function(stdout){
+    var match, type, name;
+
+    match = stdout.match(/([^\/]+)\/(.*)/);
+    if (match) {
+      type = match[1];
+      name = match[2];
+    }
+
+    callback(stdout.replace('\n', ''), type, name);
+  });
+};
+
+branch.create = function(name, options, callback){
+  options = options || {};
+  var base = options.base || 'master';
+  log('Creating the '+name+' branch based on '+base);
+  shell.run('git co -b '+name+' '+base, callback);
+};
+
+branch.update = function(name, options, callback){
+  options = options || {};
+  var message = 'Updating the '+name+' branch';
+  var cmd = 'git checkout '+name+' && git pull';
+
+  if (options.upstream === true) {
+    message += ' with upstream changes'
+    cmd += ' upstream '+name;
+  }
+
+  log(message);
+  shell.run(cmd, callback);
+};
+
+branch.push = function(name, options, callback){
+  log('Pushing the '+name+' branch to origin');
+  shell.run('git push origin '+name, callback);
+};
+
+branch.track = function(name, options, callback){
+  log('Tracking the '+name+' branch against origin/'+name);
+  shell.run('git branch --set-upstream '+name+' origin/'+name, callback);
+};
+
+branch.checkout = function(name, options, callback){
+  log('Switching to the '+name+' branch');
+  shell.run('git checkout '+name, callback);
+};
+
+branch.deleteLocal = function(name, options, callback){
+  log('Removing the local branch');
+  shell.run('git branch -D '+name, callback);
+};
+
+branch.deleteRemote = function(name, options, callback){
+  log('Removing the remote branch from origin');
+  shell.run('git push origin :'+name, callback);
+};
+
+module.exports = branch;

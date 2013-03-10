@@ -19,8 +19,14 @@ branch.current = function(callback){
 branch.create = function(name, options, callback){
   options = options || {};
   var base = options.base || 'master';
+  var cmd = 'git checkout -b '+name+' '+base;
+
+  if (options.url) {
+    cmd += ' && git pull ' + options.url;
+  }
+
   log('Creating the '+name+' branch based on '+base);
-  shell.run('git co -b '+name+' '+base, callback);
+  shell.run(cmd, callback);
 };
 
 branch.update = function(name, options, callback){

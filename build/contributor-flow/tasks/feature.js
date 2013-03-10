@@ -2,8 +2,8 @@
 
 module.exports = function(grunt) {
   var prompt = require('prompt');
-  var branch = require('./branch.js');
-  var log = require('./log.js').log;
+  var branch = require('./lib/branch');
+  var log = require('./lib/log').log;
 
   grunt.registerTask('feature', 'Creating distribution', function(action, option){
     var done = this.async();
@@ -59,7 +59,53 @@ module.exports = function(grunt) {
           });
         }
       });
+    } else if (action === 'submit') {
+    } else if (action === 'test') {
+      var pullId = option;
+      console.log(pullId);
+
+      var GitHubApi = require("github");
+
+      var github = new GitHubApi({
+          // required
+          version: "3.0.0",
+          // optional
+          timeout: 5000
+      });
+
+      github.pullRequests.getAll({
+        user: 'zencoder',
+        repo: 'video-js',
+        state: 'open'
+      }, function(err, pulls){
+        if (err) {
+          console.log(err);
+          return done(false);
+        } else {
+          pulls.forEach(function(pull){
+            if (pull.number == pullId) {
+              var branchName = pull.head.ref;
+              var gitUrl = pull.head.repo.git_url;
+              var owner = pull.head.repo.owner.login;
+
+              branch.update('master', { upstream: true }, function(){
+                branch.create(owner + '-' + branchName, {
+                  base: 'master',
+                  url: gitUrl + ' ' + branchName
+                }, function(){
+                  grunt.task.run('test');
+                  done(true);
+                });
+              });
+            }
+          });
+        }
+
+      });
+
+
+    } else if (action === 'accept') {
+    } else if (action === 'accepted') {
     }
   });
-
 };

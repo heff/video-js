@@ -8,9 +8,7 @@ log.log = function(str, options) {
     str = '-----> '+str;
   }
 
-  grunt.log.writeln(str); 
+  grunt.log.writeln(str);
 }
-
-log.logStep = function(str) { log.log('-----> ' + str); }
 
 module.exports = log;

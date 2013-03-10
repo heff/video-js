@@ -50,7 +50,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-clean');
   grunt.loadNpmTasks('grunt-contrib-copy');
 
-  grunt.loadTasks('./build/grunt-flow/');
+  grunt.loadTasks('./build/contributor-flow/tasks');
 
   // Default task.
   grunt.registerTask('default', ['jshint', 'build', 'minify', 'dist']);

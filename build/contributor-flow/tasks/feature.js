@@ -5,6 +5,14 @@ module.exports = function(grunt) {
   var branch = require('./lib/branch');
   var log = require('./lib/log').log;
 
+  var GitHubApi = require("github");
+  var github = new GitHubApi({
+      // required
+      version: "3.0.0",
+      // optional
+      timeout: 5000
+  });
+
   grunt.registerTask('feature', 'Creating distribution', function(action, option){
     var done = this.async();
 
@@ -60,18 +68,55 @@ module.exports = function(grunt) {
         }
       });
     } else if (action === 'submit') {
+
+      branch.current(function(typeSlashName, type, name){
+
+        var schema = {
+          properties: {
+            username: {
+              description: 'Github Username',
+              pattern: /^[a-zA-Z\s\-]+$/,
+              message: 'Name must be only letters, spaces, or dashes',
+              required: true
+            },
+            password: {
+              description: 'Github Password',
+              hidden: true
+            }
+          }
+        };
+
+        prompt.start();
+        prompt.get(schema, function (err, result) {
+          console.log('Command-line input received:');
+          console.log('  name: ' + result.username);
+          // console.log('  password: ' + result.password);
+
+          github.authenticate({
+              type: "basic",
+              username: result.username,
+              password: result.password
+          });
+
+          github.pullRequests.create({
+            user: result.username,
+            repo: 'video-js',
+            title: 'Amazing new feature',
+            body: 'Please pull this in',
+            head: 'heff:' + typeSlashName,
+            base: 'master'
+          }, function(err, result){
+            console.log(result);
+          });
+
+        });
+
+      });
+
+    // Download the branch from a pull requst and run tests
     } else if (action === 'test') {
       var pullId = option;
       console.log(pullId);
-
-      var GitHubApi = require("github");
-
-      var github = new GitHubApi({
-          // required
-          version: "3.0.0",
-          // optional
-          timeout: 5000
-      });
 
       github.pullRequests.getAll({
         user: 'zencoder',
@@ -100,10 +145,7 @@ module.exports = function(grunt) {
             }
           });
         }
-
       });
-
-
     } else if (action === 'accept') {
     } else if (action === 'accepted') {
     }

@@ -4,7 +4,7 @@ module.exports = function(grunt) {
   var prompt = require('prompt');
   var branch = require('./lib/branch');
   var log = require('./lib/log').log;
-  var q = require('q');
+  var Q = require('q');
 
   // Set up the Github connection for pull requests
   var GithubAPI = require("github");
@@ -19,15 +19,32 @@ module.exports = function(grunt) {
   Feature.create = function(name, options, callback){
     var name = 'feature/' + name;
 
-    branch.update('master', { upstream: true }, function(){
-      branch.create(name, { base: 'master' }, function(){
-        branch.push(name, {}, function(){
-          branch.track(name, {}, function(err){
-            callback(err);
-          });
-        });
-      });
-    });
+    Q.fcall(log, 'asdf').then(log, 'asdf');
+
+    Q.fcall(branch.update, 'master', { upstream: true })
+    .invoke(branch.create, name, { base: 'master' })
+    .invoke(branch.push, name, {})
+    .invoke(branch.track, name, {})
+    .then(callback, callback);
+
+      // branch.create(name, { base: 'master' }, function(){
+      //   branch.push(name, {}, function(){
+      //     branch.track(name, {}, function(err){
+      //       callback(err);
+      //     });
+      //   });
+      // });
+
+
+    // branch.update('master', { upstream: true }, function(){
+    //   branch.create(name, { base: 'master' }, function(){
+    //     branch.push(name, {}, function(){
+    //       branch.track(name, {}, function(err){
+    //         callback(err);
+    //       });
+    //     });
+    //   });
+    // });
   }
 
   grunt.registerTask('feature', 'Creating distribution', function(action, option, option2){
@@ -63,6 +80,8 @@ module.exports = function(grunt) {
 
     // Delete a feature
     } else if (action === 'delete') {
+      var branchName = (option) ? 'feature/'+option : false;
+
       var deleteCallback = function(err){
         if (err) { return errorCallback(err); }
         log('Feature deleted');
@@ -70,7 +89,7 @@ module.exports = function(grunt) {
       };
 
       branch.current(function(err, info){
-        var name = info.name;
+        var name = branchName || info.name;
 
         if (err) { return errorCallback(err); }
         if (info.changeType !== 'feature') {

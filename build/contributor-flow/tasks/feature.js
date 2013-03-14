@@ -82,7 +82,7 @@ module.exports = function(grunt) {
         if (err) { return errorCallback(err); }
         log('Ready to start building your feature!');
         done(true);
-      };
+      });
 
     // Delete a feature
     } else if (action === 'delete') {

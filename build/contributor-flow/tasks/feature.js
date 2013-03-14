@@ -107,7 +107,7 @@ module.exports = function(grunt) {
 
     Feature.getBranchName(featureName, {}, function(err, branchName){
       if (err) { return callback(err); }
-      submitToGithub(branchName, callback);
+      submitToGithub(branchName, {}, callback);
     });
 
     function submitToGithub(branchName, options, callback) {

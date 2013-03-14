@@ -99,7 +99,7 @@ branch.deleteRemote = function(name, options, callback){
   shell.run('git push origin :'+name, callback);
 };
 
-branch.getPullRequest = function(branchName, options callback){
+branch.getPullRequest = function(branchName, options, callback){
   var pr;
 
   github.pullRequests.getAll({

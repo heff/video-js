@@ -3,8 +3,10 @@ var shell = require('./shell.js');
 var log = require('./log.js').log;
 
 branch.current = function(callback){
-  shell.run('git rev-parse --abbrev-ref HEAD', { logging: false }, function(stdout){
+  shell.run('git rev-parse --abbrev-ref HEAD', { logging: false }, function(err, stdout){
     var match, type, name;
+
+    if (err) { return callback(err); }
 
     match = stdout.match(/([^\/]+)\/(.*)/);
     if (match) {
@@ -12,7 +14,11 @@ branch.current = function(callback){
       name = match[2];
     }
 
-    callback(stdout.replace('\n', ''), type, name);
+    callback(null, {
+      name: stdout.replace('\n', ''),
+      changeType: type,
+      changeName: name
+    });
   });
 };
 

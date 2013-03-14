@@ -18,15 +18,12 @@ shell.run = function(command, options, callback) {
 
   exec(command, function(err, stdout, stderr){
     if (err) {
-      grunt.log.error(err);
       grunt.log.error(stderr);
-      return done(false);
+      return (callback) ? callback(err) : false;
     }
 
     grunt.log.write(stdout);
-    if (callback) {
-      callback(stdout);
-    }
+    return (callback) ? callback(null, stdout) : true;
   });
 };
 

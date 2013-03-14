@@ -2,16 +2,21 @@ var branch = {};
 var shell = require('./shell.js');
 var log = require('./log.js').log;
 
-branch.current = function(callback){
-  shell.run('git rev-parse --abbrev-ref HEAD', { logging: false }, function(err, stdout){
-    var match, type, name;
+branch.current = function(options, callback){
+  var match, type, name;
+  options = options || {};
 
+  shell.run('git rev-parse --abbrev-ref HEAD', { logging: false }, function(err, stdout){
     if (err) { return callback(err); }
 
     match = stdout.match(/([^\/]+)\/(.*)/);
     if (match) {
       type = match[1];
       name = match[2];
+    }
+
+    if (options.changeType && options.changeType !== type) {
+      return callback('You are not in a '+options.type+' branch');
     }
 
     callback(null, {

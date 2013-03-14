@@ -47,31 +47,129 @@ module.exports = function(grunt) {
             if (err) { return callback(err); }
 
             branch.track(branchName, {}, function(err){
+              if (!err) { log('Ready to start building your feature!'); }
               callback(err);
             });
           });
         });
       });
     }
-  }
+  };
 
-  Feature.create = function(name, options, callback){
+  Feature.delete = function(featureName, options, callback){
+    if (!featureName) {
+      branch.current({ changeType: 'feature' }, function(err, info){
+        if (err) { return callback(err); }
+        featureName = info.changeName;
+        confirmDelete(featureName, callback);
+      });
+    } else {
+      confirmDelete(featureName, callback);
+    }
 
-  }
+    function confirmDelete(featureName, callback) {
+      var branchName = 'feature/' + featureName;
 
-  Feature.delete = function(name, options, callback){
-    branch.checkout('master', {}, function(err){
-      if (err) { return callback(err); }
+      prompt.start();
+      prompt.get({
+        name: 'yesno',
+        message: '\nAre you sure you want to delete '+branchName+'?',
+        validator: /y[es]*|n[o]?/,
+        warning: 'Must respond yes or no',
+        'default': 'no'
+      }, function (err, result) {
+        if (err) { callback(err); }
 
-      branch.deleteLocal(name, {}, function(err){
+        if (result.yesno === 'yes' || result.yesno === 'y') {
+          deleteGit(branchName, {}, callback);
+        } else {
+          callback('Delete branch aborted');
+        }
+      });
+    }
+
+    function deleteGit(branchName, options, callback)
+      branch.checkout('master', {}, function(err){
         if (err) { return callback(err); }
 
-        branch.deleteRemote(name, {}, function(err){
+        branch.deleteLocal(branchName, {}, function(err){
+          if (err) { return callback(err); }
+
+          branch.deleteRemote(branchName, {}, function(err){
+            if (!err) { log('Feature deleted') };
+            callback(err);
+          });
+        });
+      });
+    }
+  };
+
+  Feature.submit = function(featureName, options, callback){
+    var upstreamOwner, baseBranchName;
+
+    options = options || {};
+    upstreamOwner = options.upstreamOwner || 'heff2';
+    baseBranchName = options.baseBranchName || 'master';
+
+    branch.current({ changeType: 'feature' }, function(err, info){
+      if (err) { return callback(err); }
+      submitToGithub(info.changeName, {}, callback);
+    });
+
+    function submitToGithub(featureName, options, callback) {
+      var branchName = 'feature/' + featureName;
+      // Ask for Github credentials
+      var schema = {
+        properties: {
+          username: {
+            description: 'Github Username',
+            pattern: /^[a-zA-Z\s\-]+$/,
+            message: 'Name must be only letters, spaces, or dashes',
+            required: true
+          },
+          password: {
+            description: 'Github Password',
+            hidden: true,
+            required: true
+          },
+          title: {
+            description: 'Please title the pull request',
+            required: true
+          },
+          body: {
+            description: 'Please describe the feature',
+            required: false
+          }
+        }
+      };
+
+      prompt.start();
+      prompt.get(schema, function (err, result) {
+        if (err) { return callback(err); }
+
+        // Authentication is synchronus and only works for the next API call
+        // This could be changed to store a token, which is how zenflow does it
+        github.authenticate({
+            type: "basic",
+            username: result.username,
+            password: result.password
+        });
+
+        github.pullRequests.create({
+          user: upstreamOwner,
+          repo: 'video-js',
+          title: result.title,
+          body: result.body,
+          head: result.username + ':' + branchName,
+          base: baseBranchName
+        }, function(err, result){
+          if (!err) { log('Feature submitted!'); }
+          console.log(result);
           callback(err);
         });
       });
-    });
-  }
+    }
+  };
 
   grunt.registerTask('feature', 'Creating distribution', function(action, option, option2){
     var done = this.async();
@@ -84,44 +182,14 @@ module.exports = function(grunt) {
     if (action === 'start') {
       Feature.start(option, {}, function(err){
         if (err) { return errorCallback(err); }
-        log('Ready to start building your feature!');
         done(true);
       });
 
     // Delete a feature
     } else if (action === 'delete') {
-      var branchName = (option) ? 'feature/'+option : false;
-
-      var deleteCallback = function(err){
+      Feature.delete(option, function(err){
         if (err) { return errorCallback(err); }
-        log('Feature deleted');
         done(true);
-      };
-
-      branch.current(function(err, info){
-        var name = branchName || info.name;
-
-        if (err) { return errorCallback(err); }
-        if (info.changeType !== 'feature') {
-          return errorCallback('You are not in a feature branch');
-        }
-
-        prompt.start();
-        prompt.get({
-          name: 'yesno',
-          message: '\nAre you sure you want to delete '+name+'?',
-          validator: /y[es]*|n[o]?/,
-          warning: 'Must respond yes or no',
-          'default': 'no'
-        }, function (err, result) {
-          if (err) { errorCallback(err); }
-
-          if (result.yesno === 'yes' || result.yesno === 'y') {
-            Feature.delete(name, {}, deleteCallback);
-          } else {
-            deleteCallback('Delete branch aborted');
-          }
-        });
       });
 
     // Submit a feature via pull request
@@ -135,7 +203,7 @@ module.exports = function(grunt) {
         done(true);
       };
 
-      branch.current(function(err, info){
+      branch.current({}, function(err, info){
         if (err) { return errorCallback(err); }
 
         var branchName = info.name;

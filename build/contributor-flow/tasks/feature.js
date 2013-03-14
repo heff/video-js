@@ -34,7 +34,7 @@ module.exports = function(grunt) {
       startGit(name, {}, callback);
     }
 
-    function startGit(name, {}, callback) {
+    function startGit(name, options, callback) {
       var branchName = 'feature/' + name;
 
       branch.update('master', { upstream: true }, function(err){

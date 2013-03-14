@@ -4,7 +4,8 @@ module.exports = function(grunt) {
   var prompt = require('prompt');
   var branch = require('./lib/branch');
   var log = require('./lib/log').log;
-  var Q = require('q');
+  var shell = require('./lib/shell');
+  var pullRequest = require('./lib/pullrequest');
 
   // Set up the Github connection for pull requests
   var GithubAPI = require("github");
@@ -57,19 +58,12 @@ module.exports = function(grunt) {
   };
 
   Feature.delete = function(featureName, options, callback){
-    if (!featureName) {
-      branch.current({ changeType: 'feature' }, function(err, info){
-        if (err) { return callback(err); }
-        featureName = info.changeName;
-        confirmDelete(featureName, callback);
-      });
-    } else {
-      confirmDelete(featureName, callback);
-    }
+    Feature.getBranchName(featureName, {}, function(err, branchName){
+      if (err) { return callback(err); }
+      confirmDelete(branchName, callback);
+    });
 
-    function confirmDelete(featureName, callback) {
-      var branchName = 'feature/' + featureName;
-
+    function confirmDelete(branchName, callback) {
       prompt.start();
       prompt.get({
         name: 'yesno',
@@ -88,7 +82,7 @@ module.exports = function(grunt) {
       });
     }
 
-    function deleteGit(branchName, options, callback)
+    function deleteGit(branchName, options, callback) {
       branch.checkout('master', {}, function(err){
         if (err) { return callback(err); }
 
@@ -111,13 +105,12 @@ module.exports = function(grunt) {
     upstreamOwner = options.upstreamOwner || 'heff2';
     baseBranchName = options.baseBranchName || 'master';
 
-    branch.current({ changeType: 'feature' }, function(err, info){
+    Feature.getBranchName(featureName, {}, function(err, branchName){
       if (err) { return callback(err); }
-      submitToGithub(info.changeName, {}, callback);
+      submitToGithub(branchName, callback);
     });
 
-    function submitToGithub(featureName, options, callback) {
-      var branchName = 'feature/' + featureName;
+    function submitToGithub(branchName, options, callback) {
       // Ask for Github credentials
       var schema = {
         properties: {
@@ -171,129 +164,171 @@ module.exports = function(grunt) {
     }
   };
 
-  grunt.registerTask('feature', 'Creating distribution', function(action, option, option2){
-    var done = this.async();
-    var errorCallback = function(err){
-      grunt.log.error(err);
-      return done(false);
-    };
+  Feature.test = function(pullId, options, callback){
 
-    // Start a new feature
-    if (action === 'start') {
-      Feature.start(option, {}, function(err){
-        if (err) { return errorCallback(err); }
-        done(true);
+    if (!pullId) {
+      pullRequest.askForId(function(err, id){
+        if (err) { return callback(err); }
+        getPullRequests(id, {}, callback);
       });
+    } else {
+      getPullRequests(pullId, {}, callback);
+    }
 
-    // Delete a feature
-    } else if (action === 'delete') {
-      Feature.delete(option, function(err){
-        if (err) { return errorCallback(err); }
-        done(true);
-      });
-
-    // Submit a feature via pull request
-    } else if (action === 'submit') {
-      // feature submit:zencoder:master
-      var upstreamOwner = option || 'heff2';
-      var baseBranchName = option2 || 'master';
-      var submitCallback = function(err){
-        if (err) { return errorCallback(err); }
-        log('Feature submitted!');
-        done(true);
-      };
-
-      branch.current({}, function(err, info){
-        if (err) { return errorCallback(err); }
-
-        var branchName = info.name;
-        // Ask for Github credentials
-        var schema = {
-          properties: {
-            username: {
-              description: 'Github Username',
-              pattern: /^[a-zA-Z\s\-]+$/,
-              message: 'Name must be only letters, spaces, or dashes',
-              required: true
-            },
-            password: {
-              description: 'Github Password',
-              hidden: true,
-              required: true
-            },
-            title: {
-              description: 'Please title the pull request',
-              required: true
-            },
-            body: {
-              description: 'Please describe the feature',
-              required: false
-            }
-          }
-        };
-
-        prompt.start();
-        prompt.get(schema, function (err, result) {
-          if (err) { return errorCallback(err); }
-
-          // Authentication is synchronus and only works for the next API call
-          // This could be changed to store a token, which is how zenflow does it
-          github.authenticate({
-              type: "basic",
-              username: result.username,
-              password: result.password
-          });
-
-          github.pullRequests.create({
-            user: upstreamOwner,
-            repo: 'video-js',
-            title: result.title,
-            body: result.body,
-            head: result.username + ':' + branchName,
-            base: baseBranchName
-          }, function(err, result){
-            console.log(result);
-            submitCallback(err);
-          });
-        });
-      });
-
-    // Download the branch from a pull requst and run tests
-    } else if (action === 'test') {
-      var pullId = option;
-
-      var testCallback = function(err){
-        if (err) { return errorCallback(err); }
-        log('Feature copied into your local repo');
-        done(true);
-      };
-
+    function getPullRequests(pullId, options, callback){
       github.pullRequests.getAll({
         user: 'zencoder',
         repo: 'video-js',
         state: 'open'
-      }, function(err, pulls){
-        if (err) { return errorCallback(err); }
+      }, handlePullRequests);
+    }
 
-        pulls.forEach(function(pull){
-          if (pull.number == pullId) {
-            var branchName = pull.head.ref;
-            var gitUrl = pull.head.repo.git_url;
-            var owner = pull.head.repo.owner.login;
+    function handlePullRequests(err, pulls){
+      var branchName, gitUrl, owner;
 
-            branch.update('master', { upstream: true }, function(){
-              branch.create(owner + '-' + branchName, {
-                base: 'master',
-                url: gitUrl + ' ' + branchName
-              }, function(err){
-                grunt.task.run('test');
-                testCallback(err);
-              });
+      if (err) { return callback(err); }
+
+      pulls.forEach(function(pull){
+        if (pull.number === parseInt(pullId, 10)) {
+          branchName = pull.head.ref;
+          gitUrl = pull.head.repo.git_url;
+          owner = pull.head.repo.owner.login;
+
+          branch.update('master', { upstream: true }, function(){
+            branch.create(owner + '_' + branchName, {
+              base: 'master',
+              url: gitUrl + ' ' + branchName
+            }, function(err){
+              grunt.task.run('test');
+              if (!err) { log('Feature copied into your local repo'); }
+              callback(err);
             });
-          }
-        });
+          });
+        }
       });
+    }
+  };
+
+  Feature.accept = function(pullId, options, callback){
+    var branchName;
+
+    if (pullId) {
+      confirmAccept(pullId, options, callback);
+    } else {
+      Feature.getPullRequest(null, options, function(err, pull){
+        if (err) { return callback(err); }
+        confirmAccept(pull.number, options, callback);
+      });
+    }
+
+    function confirmAccept(pullId, options, callback) {
+      Feature.confirm('Are you sure you want to merge pull request '+pullId+'?', options, function(err, result){
+        if (err) { return callback(err); }
+        if (result === 'no') {
+          callback('Feature accept aborted');
+        } else {
+          acceptCmds(pullId, options, callback);
+        }
+      });
+    }
+
+    function acceptCmds(pullId, options, callback){
+      shell.run('pulley '+pullId, {}, callback);
+    }
+  };
+
+  Feature.getPullRequest = function(featureName, options, callback){
+    var branchName;
+
+    options = options || {};
+
+    if (featureName) {
+      branchName = 'feature/'+featureName;
+      if (options.owner) {
+        branchName = options.owner + '_' + branchName;
+      }
+      return branch.getPullRequest(branchName, {}, callback);
+    }
+
+    // Use current branch name
+    Feature.getBranchName(null, {}, function(err, branchName){
+      if (err) {
+        return pullRequest.askForId(callback);
+      }
+      branch.getPullRequest(branchName, {}, callback);
+    });
+  };
+
+  Feature.getBranchName = function(featureName, options, callback){
+    var type = 'feature';
+
+    function success(featureName){
+      callback(null, type + '/' + featureName);
+    }
+
+    if (!featureName) {
+      branch.current({ changeType: type }, function(err, info){
+        if (err) { return callback(err); }
+        success(info.changeName);
+      });
+    } else {
+      success(featureName);
+    }
+  };
+
+  Feature.confirm = function(question, options, callback) {
+    prompt.start();
+    prompt.get({
+      name: 'yesno',
+      message: '\n'+message,
+      validator: /y[es]*|n[o]?/,
+      warning: 'Must respond yes or no',
+      'default': 'no'
+    }, function (err, result) {
+      if (err) { return callback(err); }
+
+      if (result.yesno === 'yes' || result.yesno === 'y') {
+        callback(null, 'yes');
+      } else {
+        callback(null, 'no');
+      }
+    });
+  };
+
+  grunt.registerTask('feature', 'Creating distribution', function(action, option, option2){
+    var done, owner, branch;
+
+    done = this.async();
+
+    function taskCallback(err){
+      if (err) {
+        grunt.log.error(err);
+        return done(false);
+      }
+      done(true);
+    }
+
+    // Start a new feature
+    if (action === 'start') {
+      Feature.start(option, {}, taskCallback);
+
+    // Delete a feature
+    } else if (action === 'delete') {
+      Feature.delete(option, {}, taskCallback);
+
+    // Submit a feature via pull request
+    } else if (action === 'submit') {
+      Feature.submit(option, {
+        upstreamOwner: grunt.option('owner'), // CLI flag
+        baseBranchName: grunt.option('branch') // CLI flag
+      }, taskCallback);
+
+    // Download the branch from a pull requst and run tests
+    } else if (action === 'test') {
+      Feature.test(option, {}, taskCallback);
+
     } else if (action === 'accept') {
+      Feature.accept(option, {}, taskCallback);
     }
   });
 };

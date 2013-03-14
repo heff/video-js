@@ -28,31 +28,35 @@ module.exports = function(grunt) {
         required: true
       }, function (err, result) {
         if (err) { return callback(err); };
-        Feature.create(result.name, {}, callback);
+        startGit(result.name, {}, callback);
       });
     } else {
-      Feature.create(name, {}, callback);
+      startGit(name, {}, callback);
+    }
+
+    function startGit(name, {}, callback) {
+      var branchName = 'feature/' + name;
+
+      branch.update('master', { upstream: true }, function(err){
+        if (err) { return callback(err); }
+
+        branch.create(branchName, { base: 'master' }, function(err){
+          if (err) { return callback(err); }
+
+          branch.push(branchName, {}, function(err){
+            if (err) { return callback(err); }
+
+            branch.track(branchName, {}, function(err){
+              callback(err);
+            });
+          });
+        });
+      });
     }
   }
 
   Feature.create = function(name, options, callback){
-    var name = 'feature/' + name;
 
-    branch.update('master', { upstream: true }, function(err){
-      if (err) { return callback(err); }
-
-      branch.create(name, { base: 'master' }, function(err){
-        if (err) { return callback(err); }
-
-        branch.push(name, {}, function(err){
-          if (err) { return callback(err); }
-
-          branch.track(name, {}, function(err){
-            callback(err);
-          });
-        });
-      });
-    });
   }
 
   Feature.delete = function(name, options, callback){

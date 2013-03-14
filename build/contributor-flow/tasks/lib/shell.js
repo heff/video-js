@@ -23,7 +23,7 @@ shell.run = function(command, options, callback) {
     }
 
     grunt.log.write(stdout);
-    return (callback) ? callback(null, stdout) : true;
+    return (callback) ? callback(null, stdout) : null;
   });
 };
 

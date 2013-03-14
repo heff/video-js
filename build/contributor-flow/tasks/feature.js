@@ -16,35 +16,57 @@ module.exports = function(grunt) {
   });
 
   var Feature = {};
+
+  Feature.start = function(name, options, callback){
+    if (!name) {
+      prompt.start();
+      prompt.get({
+        name: 'name',
+        message: '\nName of the feature:',
+        validator: /^[a-z0-9\-]+$/,
+        warning: 'Names can only contain dashes, 0-9, and a-z',
+        required: true
+      }, function (err, result) {
+        if (err) { return callback(err); };
+        Feature.create(result.name, {}, callback);
+      });
+    } else {
+      Feature.create(name, {}, callback);
+    }
+  }
+
   Feature.create = function(name, options, callback){
     var name = 'feature/' + name;
 
-    Q.fcall(log, 'asdf').then(log, 'asdf');
+    branch.update('master', { upstream: true }, function(err){
+      if (err) { return callback(err); }
 
-    Q.fcall(branch.update, 'master', { upstream: true })
-    .invoke(branch.create, name, { base: 'master' })
-    .invoke(branch.push, name, {})
-    .invoke(branch.track, name, {})
-    .then(callback, callback);
+      branch.create(name, { base: 'master' }, function(err){
+        if (err) { return callback(err); }
 
-      // branch.create(name, { base: 'master' }, function(){
-      //   branch.push(name, {}, function(){
-      //     branch.track(name, {}, function(err){
-      //       callback(err);
-      //     });
-      //   });
-      // });
+        branch.push(name, {}, function(err){
+          if (err) { return callback(err); }
 
+          branch.track(name, {}, function(err){
+            callback(err);
+          });
+        });
+      });
+    });
+  }
 
-    // branch.update('master', { upstream: true }, function(){
-    //   branch.create(name, { base: 'master' }, function(){
-    //     branch.push(name, {}, function(){
-    //       branch.track(name, {}, function(err){
-    //         callback(err);
-    //       });
-    //     });
-    //   });
-    // });
+  Feature.delete = function(name, options, callback){
+    branch.checkout('master', {}, function(err){
+      if (err) { return callback(err); }
+
+      branch.deleteLocal(name, {}, function(err){
+        if (err) { return callback(err); }
+
+        branch.deleteRemote(name, {}, function(err){
+          callback(err);
+        });
+      });
+    });
   }
 
   grunt.registerTask('feature', 'Creating distribution', function(action, option, option2){
@@ -56,27 +78,11 @@ module.exports = function(grunt) {
 
     // Start a new feature
     if (action === 'start') {
-      var startCallback = function(err){
+      Feature.start(option, {}, function(err){
         if (err) { return errorCallback(err); }
         log('Ready to start building your feature!');
         done(true);
       };
-
-      if (!option) {
-        prompt.start();
-        prompt.get({
-          name: 'name',
-          message: '\nName of the feature:',
-          validator: /^[a-z0-9\-]+$/,
-          warning: 'Names can only contain dashes, 0-9, and a-z',
-          required: true
-        }, function (err, result) {
-          if (err) { return errorCallback(err); };
-          Feature.create(result.name, {}, startCallback);
-        });
-      } else {
-        Feature.create(option, {}, startCallback);
-      }
 
     // Delete a feature
     } else if (action === 'delete') {
@@ -107,13 +113,7 @@ module.exports = function(grunt) {
           if (err) { errorCallback(err); }
 
           if (result.yesno === 'yes' || result.yesno === 'y') {
-            branch.checkout('master', {}, function(){
-              branch.deleteLocal(name, {}, function(){
-                branch.deleteRemote(name, {}, function(err){
-                  deleteCallback(err);
-                });
-              });
-            });
+            Feature.delete(name, {}, deleteCallback);
           } else {
             deleteCallback('Delete branch aborted');
           }

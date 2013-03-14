@@ -1,6 +1,15 @@
+// Set up the Github connection for pull requests
+var GithubAPI = require("github");
+var github = new GithubAPI({
+    // required
+    version: "3.0.0",
+    // optional
+    timeout: 5000
+});
+
 var PR = {};
 
-PR.askForId(callback){
+PR.askForId = function(callback){
   prompt.start();
   prompt.get({
     name: 'pullId',
@@ -17,7 +26,7 @@ PR.askForId(callback){
       number: result.pullId
     }, callback);
   });
-}
+};
 
 module.exports = PR;
 

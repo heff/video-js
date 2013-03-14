@@ -157,7 +157,6 @@ module.exports = function(grunt) {
           base: baseBranchName
         }, function(err, result){
           if (!err) { log('Feature submitted!'); }
-          console.log(result);
           callback(err);
         });
       });

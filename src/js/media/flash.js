@@ -60,7 +60,7 @@ vjs.Flash = vjs.MediaTechController.extend({
           'id': objId,
           'name': objId, // Both ID and Name needed or swf to identifty itself
           'class': 'vjs-tech'
-        }, options['attributes']),
+        }, options['attributes'])
     ;
 
     // If source was supplied pass as a flash var.

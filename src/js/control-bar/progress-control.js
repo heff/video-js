@@ -131,7 +131,12 @@ vjs.LoadProgressBar.prototype.createEl = function(){
 vjs.LoadProgressBar.prototype.update = function(){
   if (this.el_.style) {
     var buffered = this.player_.buffered(),
-        children = this.el_.children;
+        duration = this.player_.duration(),
+        children = this.el_.children,
+        percentify = function (time){
+          var percent = (time/duration) || 0; // no NaN
+          return vjs.round(percent, 2) * 100 + '%';
+        };
 
     for (var i=0; i<buffered.length; i++) {
       var start = buffered.start(i),
@@ -142,8 +147,8 @@ vjs.LoadProgressBar.prototype.update = function(){
         part = this.el_.appendChild(vjs.createEl())
       };
 
-      part.style.left = this.percentify(start);
-      part.style.width = this.percentify(end - start);
+      part.style.left = percentify(start);
+      part.style.width = percentify(end - start);
     };
 
     // remove unloaded buffered ranges
@@ -152,10 +157,6 @@ vjs.LoadProgressBar.prototype.update = function(){
     }
   }
 };
-
-vjs.LoadProgressBar.prototype.percentify = function(time) {
-  return vjs.round(time / this.player_.duration() * 100, 2) + '%'
-}
 
 /**
  * Shows play progress

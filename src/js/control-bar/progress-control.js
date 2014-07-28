@@ -174,7 +174,8 @@ vjs.PlayProgressBar = vjs.Component.extend({
 
 vjs.PlayProgressBar.prototype.createEl = function(){
   return vjs.Component.prototype.createEl.call(this, 'div', {
-    className: 'vjs-play-progress'
+    className: 'vjs-play-progress',
+    innerHTML: '<span class="vjs-control-text">Progress: 0%</span>'
   });
 };
 

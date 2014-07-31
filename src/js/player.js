@@ -794,19 +794,41 @@ vjs.Player.prototype.bufferedPercent = function(){
       bufferedDuration = 0,
       start, end;
 
-  if (!duration) return 0;
+  if (!duration) {
+    return 0;
+  }
 
   for (var i=0; i<buffered.length; i++){
     start = buffered.start(i);
     end   = buffered.end(i);
 
     // buffered end can be bigger than duration by a very small fraction
-    if (end > duration) end = duration;
+    if (end > duration) {
+      end = duration;
+    }
 
     bufferedDuration += end - start;
   }
 
   return bufferedDuration / duration;
+};
+
+/**
+ * Get the ending time of the last buffered time range
+ *
+ * This is used in the progress bar to encapsulate all time ranges.
+ * @return {Number} The end of the last buffered time range
+ */
+vjs.Player.prototype.bufferedEnd = function(){
+  var buffered = this.buffered(),
+      duration = this.duration(),
+      end = buffered.end(buffered.length-1);
+
+  if (end > duration) {
+    end = duration;
+  }
+
+  return end;
 };
 
 /**

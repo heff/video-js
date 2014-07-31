@@ -129,32 +129,38 @@ vjs.LoadProgressBar.prototype.createEl = function(){
 };
 
 vjs.LoadProgressBar.prototype.update = function(){
-  if (this.el_.style) {
-    var buffered = this.player_.buffered(),
-        duration = this.player_.duration(),
-        children = this.el_.children,
-        percentify = function (time){
-          var percent = (time/duration) || 0; // no NaN
-          return vjs.round(percent, 2) * 100 + '%';
-        };
-
-    for (var i=0; i<buffered.length; i++) {
-      var start = buffered.start(i),
-          end = buffered.end(i),
-          part = children[i];
-
-      if (!part) {
-        part = this.el_.appendChild(vjs.createEl())
+  var i, start, end, part,
+      buffered = this.player_.buffered(),
+      duration = this.player_.duration(),
+      bufferedEnd = this.player_.bufferedEnd(),
+      children = this.el_.children,
+      // get the percent width of a time compared to the total end
+      percentify = function (time, end){
+        var percent = (time / end) || 0; // no NaN
+        return (percent * 100) + '%';
       };
 
-      part.style.left = percentify(start);
-      part.style.width = percentify(end - start);
+  // update the width of the progress bar
+  this.el_.style.width = percentify(bufferedEnd, duration);
+
+  // add child elements to represent the individual buffered time ranges
+  for (i = 0; i < buffered.length; i++) {
+    start = buffered.start(i),
+    end = buffered.end(i),
+    part = children[i];
+
+    if (!part) {
+      part = this.el_.appendChild(vjs.createEl())
     };
 
-    // remove unloaded buffered ranges
-    for (var i=children.length; i > buffered.length; i--) {
-      this.el_.removeChild(children[i-1]);
-    }
+    // set the percent based on the width of the progress bar (bufferedEnd)
+    part.style.left = percentify(start, bufferedEnd);
+    part.style.width = percentify(end - start, bufferedEnd);
+  };
+
+  // remove unused buffered range elements
+  for (i = children.length; i > buffered.length; i--) {
+    this.el_.removeChild(children[i-1]);
   }
 };
 

@@ -19,7 +19,7 @@ vjs.Html5 = vjs.MediaTechController.extend({
     this['featuresPlaybackRate'] = vjs.Html5.canControlPlaybackRate();
 
     // In iOS, if you move a video element in the DOM, it breaks video playback.
-    this['movingMediaElementInDOM'] = !vjs.IS_IOS;
+    this['featuresMovingMediaElementInDOM'] = !vjs.IS_IOS;
 
     // HTML video is able to automatically resize when going to fullscreen
     this['featuresFullscreenResize'] = true;
@@ -30,19 +30,16 @@ vjs.Html5 = vjs.MediaTechController.extend({
     vjs.MediaTechController.call(this, player, options, ready);
     this.setupTriggers();
 
+    // Determine if native controls should be used
+    if (vjs.TOUCH_ENABLED && player.options()['nativeControlsForTouch'] === true) {
+      this.useNativeControls();
+    }
+
     var source = options['source'];
 
     // set the source if one was provided
     if (source && this.el_.currentSrc !== source.src) {
       this.el_.src = source.src;
-    }
-
-    // Determine if native controls should be used
-    // Our goal should be to get the custom controls on mobile solid everywhere
-    // so we can remove this all together. Right now this will block custom
-    // controls on touch enabled laptops like the Chrome Pixel
-    if (vjs.TOUCH_ENABLED && player.options()['nativeControlsForTouch'] !== false) {
-      this.useNativeControls();
     }
 
     // Chrome and Safari both have issues with autoplay.
@@ -67,55 +64,45 @@ vjs.Html5.prototype.dispose = function(){
 
 vjs.Html5.prototype.createEl = function(){
   var player = this.player_,
-      // If possible, reuse original tag for HTML5 playback technology element
-      el = player.tag,
-      attributes,
-      newEl,
-      clone;
+      el = player.tag;
 
   // Check if this browser supports moving the element into the box.
   // On the iPhone video will break if you move the element,
-  // So we have to create a brand new element.
-  if (!el || this['movingMediaElementInDOM'] === false) {
+  // so we have to create a brand new element.
+  if (el && this['featuresMovingMediaElementInDOM'] === false) {
+    vjs.Html5.disposeMediaElement(player.tag);
+    player.tag = null;
+  }
 
-    // If the original tag is still there, clone and remove it.
-    if (el) {
-      clone = el.cloneNode(false);
-      vjs.Html5.disposeMediaElement(el);
-      el = clone;
-      player.tag = null;
-    } else {
-      el = vjs.createEl('video');
+  // If we can't use the original tag we need to recreate it
+  if (!el) {
+    el = vjs.createEl('video');
 
-      // determine if native controls should be used
-      attributes = videojs.util.mergeOptions({}, player.tagAttributes);
-      if (!vjs.TOUCH_ENABLED || player.options()['nativeControlsForTouch'] === false) {
-        delete attributes.controls;
-      }
-
-      vjs.setElementAttributes(el,
-        vjs.obj.merge(attributes, {
-          id:player.id() + '_html5_api',
-          'class':'vjs-tech'
-        })
-      );
-    }
-    // associate the player with the new tag
-    el['player'] = player;
+    // Ensure additional unknown attributes get included from the
+    // original video tag
+    vjs.setElementAttributes(el, player.tagAttributes);
 
     vjs.insertFirst(el, player.el());
   }
 
-  // Update specific tag settings, in case they were overridden
-  var settingsAttrs = ['autoplay','preload','loop','muted'];
-  for (var i = settingsAttrs.length - 1; i >= 0; i--) {
-    var attr = settingsAttrs[i];
-    var overwriteAttrs = {};
+  // Update specific tag settings, in case they were overridden in options
+  var overwriteAttrs = {};
+  vjs.arr.forEach(['autoplay','preload','loop','muted'], function(attr){
     if (typeof player.options_[attr] !== 'undefined') {
       overwriteAttrs[attr] = player.options_[attr];
     }
-    vjs.setElementAttributes(el, overwriteAttrs);
-  }
+  });
+  vjs.setElementAttributes(el, overwriteAttrs);
+
+  // Disable controls by default. Init will call useNativeControls if needed.
+  el.controls = false;
+
+  // Overwrite the ID and class name
+  el.id = player.id() + '_html5_api';
+  el.className = 'vjs-tech';
+
+  // associate the player with the new tag
+  el['player'] = player;
 
   return el;
   // jenniisawesome = true;

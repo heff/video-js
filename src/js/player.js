@@ -263,11 +263,15 @@ vjs.Player.prototype.createEl = function(){
     }
   });
 
+
+
   // Update tag id/class for use as HTML5 playback tech
   // Might think we should do this after embedding in container so .vjs-tech class
   // doesn't flash 100% width/height, but class only applies with .video-js parent
-  tag.id += '_html5_api';
-  tag.className = 'vjs-tech';
+
+  // Remove the ID and classname so they don't duplicate the player styles
+  tag.id = null;
+  tag.className = '';
 
   // Make player findable on elements
   tag['player'] = el['player'] = this;

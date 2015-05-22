@@ -2,7 +2,14 @@ import TextTrackMenuItem from '../../../src/js/control-bar/text-track-controls/t
 import TestHelpers from '../test-helpers.js';
 import * as browser from '../../../src/js/utils/browser.js';
 
-q.module('Text Track Controls');
+q.module('Text Track Controls', {
+  'setup': function() {
+    this.clock = sinon.useFakeTimers();
+  },
+  'teardown': function() {
+    this.clock.restore();
+  }
+});
 
 var track = {
   kind: 'captions',
@@ -10,12 +17,17 @@ var track = {
 };
 
 test('should be displayed when text tracks list is not empty', function() {
-  var player = TestHelpers.makePlayer({
+  let clock = sinon.useFakeTimers();
+  let player = TestHelpers.makePlayer({
     tracks: [track]
   });
 
+  this.clock.tick(5);
+
   ok(!player.controlBar.captionsButton.hasClass('vjs-hidden'), 'control is displayed');
   equal(player.textTracks().length, 1, 'textTracks contains one item');
+
+  clock.restore();
 });
 
 test('should be displayed when a text track is added to an empty track list', function() {

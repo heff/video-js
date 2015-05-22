@@ -17,17 +17,14 @@ var track = {
 };
 
 test('should be displayed when text tracks list is not empty', function() {
-  let clock = sinon.useFakeTimers();
   let player = TestHelpers.makePlayer({
     tracks: [track]
   });
 
-  this.clock.tick(5);
+  this.clock.tick(1000);
 
   ok(!player.controlBar.captionsButton.hasClass('vjs-hidden'), 'control is displayed');
   equal(player.textTracks().length, 1, 'textTracks contains one item');
-
-  clock.restore();
 });
 
 test('should be displayed when a text track is added to an empty track list', function() {
@@ -61,7 +58,11 @@ test('menu should contain "Settings", "Off" and one track', function() {
   var player = TestHelpers.makePlayer({
       tracks: [track]
     }),
-    menuItems = player.controlBar.captionsButton.items;
+    menuItems;
+
+  this.clock.tick(1000);
+
+  menuItems = player.controlBar.captionsButton.items;
 
   equal(menuItems.length, 3, 'menu contains three items');
   equal(menuItems[0].track.label, 'captions settings', 'menu contains "captions settings"');
@@ -74,6 +75,8 @@ test('menu should update with addRemoteTextTrack', function() {
     tracks: [track]
   });
 
+  this.clock.tick(1000);
+
   player.addRemoteTextTrack(track);
 
   equal(player.controlBar.captionsButton.items.length, 4, 'menu does contain added track');
@@ -84,6 +87,8 @@ test('menu should update with removeRemoteTextTrack', function() {
   var player = TestHelpers.makePlayer({
     tracks: [track, track]
   });
+
+  this.clock.tick(1000);
 
   player.removeRemoteTextTrack(player.textTracks()[0]);
 
